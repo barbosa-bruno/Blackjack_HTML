@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blackjack Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #3b8c4e;
+            color: white;
+        }
+        .game-container {
+            margin-top: 50px;
+        }
+        .card {
+            display: inline-block;
+            margin: 10px;
+            width: 80px;
+            height: 120px;
+        }
+        .table {
+            margin-top: 30px;
+            border: 2px solid #333;
+            padding: 30px;
+            background-color: #4CAF50;
+            border-radius: 15px;
+        }
+        .button {
+            padding: 10px 20px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .button:hover {
+            background-color: #218838;
+        }
+        #message {
+            margin-top: 20px;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .betting-container {
+            margin-bottom: 20px;
+        }
+        #bet {
+            font-size: 18px;
+        }
+        #player-money, #stats {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <div class="table">
+            <h2>Blackjack Game</h2>
+            <div id="player-money">Your Money: $1000</div>
+            <div id="stats">Wins: 0 | Losses: 0 | Ties: 0</div>
+            <div class="betting-container">
+                <input type="number" id="bet-amount" placeholder="Enter your bet" min="1" max="1000" step="1" />
+                <button class="button" onclick="placeBet()">Place Bet</button>
+                <div id="bet"></div>
+            </div>
+            <div id="player-cards"></div>
+            <div id="dealer-cards"></div>
+            <div id="message"></div>
+        </div>
+        
+        <div>
+            <button class="button" onclick="startGame()" style="display: none;">Start Game</button>
+            <button class="button" onclick="hit()" style="display: none;">Hit</button>
+            <button class="button" onclick="stand()" style="display: none;">Stand</button>
+        </div>
+    </div>
+
+    <script>
+        let deck = [];
+        let playerHand = [];
+        let dealerHand = [];
+        let playerMoney = 1000;
+        let playerScore = 0;
+        let dealerScore = 0;
+        let betAmount = 0;
+        let wins = 0;
+        let losses = 0;
+        let ties = 0;
+        let gameOver = false;
+
+        const suits = ["hearts", "diamonds", "clubs", "spades"];
+        const values = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
+
+        // Create and shuffle the deck
+        function createDeck() {
+            deck = [];
+            suits.forEach(suit => {
+                values.forEach(value => {
+                    deck.push({ value: value, suit: suit, img: `images/${value}_of_${suit}.png` });
+                });
+            });
+            shuffleDeck();
+        }
+
+        // Shuffle the deck
+        function shuffleDeck() {
+            for (let i = deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[j]] = [deck[j], deck[i]];
+            }
+        }
+
+        // Start the game
+        function startGame() {
+            if (betAmount > 0 && betAmount <= playerMoney) {
+                playerHand = [];
+                dealerHand = [];
+                gameOver = false;
+                createDeck();
+                dealCards();
+                document.querySelector('button[onclick="hit()"]').style.display = 'inline';
+                document.querySelector('button[onclick="stand()"]').style.display = 'inline';
+                document.getElementById("message").innerText = "";
+                renderCards();
+            } else {
+                document.getElementById("message").innerText = "Invalid bet amount!";
+            }
+        }
+
+        // Place the bet
+        function placeBet() {
+            betAmount = parseInt(document.getElementById("bet-amount").value);
+            if (betAmount > 0 && betAmount <= playerMoney) {
+                playerMoney -= betAmount;
+                document.getElementById("bet").innerText = `Your Bet: $${betAmount}`;
+                document.getElementById("player-money").innerText = `Your Money: $${playerMoney}`;
+                document.querySelector('button[onclick="startGame()"]').style.display = 'inline';
+            } else {
+                document.getElementById("message").innerText = "Invalid bet amount!";
+            }
+        }
+
+        // Deal initial cards
+        function dealCards() {
+            playerHand.push(deck.pop());
+            dealerHand.push(deck.pop());
+            playerHand.push(deck.pop());
+            dealerHand.push(deck.pop());
+            calculateScores();
+        }
+
+        // Render player and dealer cards with images
+        function renderCards() {
+            let playerHTML = "";
+            let dealerHTML = "";
+
+            // Player cards
+            playerHand.forEach(card => {
+                playerHTML += `<img class="card" src="${card.img}" alt="${card.value} of ${card.suit}">`;
+            });
+
+            // Dealer cards (only the first card is visible initially)
+            dealerHTML += `<img class="card" src="${dealerHand[0].img}" alt="${dealerHand[0].value} of ${dealerHand[0].suit}">`;
+            dealerHTML += `<img class="card" src="images/back.png" alt="Hidden Card">`;  // Back of card
+
+            document.getElementById("player-cards").innerHTML = "Player's cards: " + playerHTML;
+            document.getElementById("dealer-cards").innerHTML = "Dealer's cards: " + dealerHTML;
+        }
+
+        // Calculate hand value
+        function calculateScores() {
+            playerScore = calculateHand(playerHand);
+            dealerScore = calculateHand(dealerHand);
+        }
+
+        // Calculate the total value of a hand
+        function calculateHand(hand) {
+            let total = 0;
+            let aceCount = 0;
+
+            hand.forEach(card => {
+                if (["J", "Q", "K"].includes(card.value)) {
+                    total += 10;
+                } else if (card.value === "A") {
+                    aceCount += 1;
+                    total += 11;
+                } else {
+                    total += parseInt(card.value);
+                }
+            });
+
+            // Adjust for aces (Aces can be 1 or 11)
+            while (total > 21 && aceCount > 0) {
+                total -= 10;
+                aceCount -= 1;
+            }
+
+            return total;
+        }
+
+        // Player hits: Draw another card
+        function hit() {
+            playerHand.push(deck.pop());
+            calculateScores();
+            renderCards();
+            if (playerScore > 21) {
+                document.getElementById("message").innerText = "You busted! Dealer wins!";
+                losses++;
+                endGame();
+            }
+        }
+
+        // Player stands: End their turn and reveal dealer's second card
+        function stand() {
+            while (dealerScore < 17) {
+                dealerHand.push(deck.pop());
+                calculateScores();
+                renderCards();
+            }
+
+            if (dealerScore > 21) {
+                document.getElementById("message").innerText = "Dealer busts! You win!";
+                playerMoney += betAmount * 2;
+                wins++;
+            } else if (playerScore > dealerScore) {
+                document.getElementById("message").innerText = "You win!";
+                playerMoney += betAmount * 2;
+                wins++;
+            } else if (playerScore < dealerScore) {
+                document.getElementById("message").innerText = "Dealer wins!";
+                losses++;
+            } else {
+                document.getElementById("message").innerText = "It's a tie!";
+                playerMoney += betAmount;
+                ties++;
+            }
+
+            endGame();
+        }
+
+        // End the game (reset for the next round)
+        function endGame() {
+            gameOver = true;
+            updateStats();
+            document.querySelector('button[onclick="hit()"]').style.display = 'none';
+            document.querySelector('button[onclick="stand()"]').style.display = 'none';
+            document.querySelector('button[onclick="startGame()"]').style.display = 'none';
+
+            if (playerMoney <= 0) {
+                document.getElementById("message").innerText = "You're out of money! Game over!";
+            } else {
+                setTimeout(() => {
+                    document.querySelector('button[onclick="startGame()"]').style.display = 'inline';
+                }, 2000);
+            }
+        }
+
+        // Update stats
+        function updateStats() {
+            document.getElementById("stats").innerText = `Wins: ${wins} | Losses: ${losses} | Ties: ${ties}`;
+            document.getElementById("player-money").innerText = `Your Money: $${playerMoney}`;
+        }
+    </script>
+</body>
+</html>
